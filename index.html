@@ -6,7 +6,7 @@
   <title>Web Radio</title>
   <style>
     body {
-      font-family: 'Courier New', monospace;
+      font-family: 'Segoe UI', sans-serif;
       background-color: #1b2c23;
       color: #9fcabf;
       margin: 0;
@@ -19,9 +19,14 @@
       padding: 10px;
       overflow-y: auto;
     }
+    .group-title {
+      color: #f0e130;
+      font-weight: bold;
+      margin: 10px 0 5px 5px;
+      display: block;
+    }
     .station-button {
-      display: flex;
-      align-items: center;
+      display: block;
       background-color: #344e41;
       color: white;
       border: none;
@@ -31,11 +36,7 @@
       font-size: 14px;
       cursor: pointer;
       border-radius: 5px;
-    }
-    .station-button img {
-      height: 24px;
-      width: 24px;
-      margin-right: 10px;
+      text-align: left;
     }
     .station-button.active {
       background-color: #1b4332;
@@ -50,11 +51,18 @@
     }
     .clock {
       font-size: 18px;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
     }
     .now-playing {
       font-size: 20px;
+      margin-bottom: 10px;
+    }
+    .sleep-control {
       margin-bottom: 20px;
+    }
+    select {
+      padding: 5px;
+      margin-left: 10px;
     }
     audio {
       width: 80%;
@@ -66,21 +74,41 @@
   <div class="main">
     <div class="clock" id="clock">--:--</div>
     <div class="now-playing" id="nowPlaying">Now Playing: --</div>
+    <div class="sleep-control">
+      ⏱ Sleep timer:
+      <select id="sleepSelect">
+        <option value="0">Off</option>
+        <option value="30">30 min</option>
+        <option value="60" selected>60 min</option>
+        <option value="90">90 min</option>
+      </select>
+      <span id="sleepCountdown" style="margin-left: 10px;"></span>
+    </div>
     <audio id="audio" controls autoplay></audio>
   </div>
   <script>
-    const stations = [
-      { name: 'FM 101', url: 'https://whmsonic.radio.gov.pk:8018/stream/1/', logo: 'fm101.png' },
-      { name: 'Mera FM 107.4', url: 'https://samaakhi107-itelservices.radioca.st/stream/1/', logo: 'merafm.png' },
-      { name: 'MAST FM', url: 'https://stream.mast103.com/karachi/', logo: 'mastfm.png' },
-      { name: 'FM91 Lahore', url: 'https://cc.vmakerhost.com/proxy/karachi?mp=/stream', logo: 'fm91.png' },
-      { name: 'CityFM 89', url: 'https://radio.cityfm89.com/stream', logo: 'cityfm89.png' },
-    ];
+    const stationGroups = {
+      "PAKISTAN": [
+        { name: 'FM 101', url: 'https://whmsonic.radio.gov.pk:8018/stream/1/' },
+        { name: 'Mera FM 107.4', url: 'https://samaakhi107-itelservices.radioca.st/stream/1/' },
+        { name: 'MAST FM', url: 'https://stream.mast103.com/karachi/' },
+        { name: 'FM91 Lahore', url: 'https://cc.vmakerhost.com/proxy/karachi?mp=/stream' },
+        { name: 'CityFM 89', url: 'https://radio.cityfm89.com/stream' }
+      ],
+      "INDIA": [
+        { name: 'Radio Mirchi', url: 'https://19013.live.streamtheworld.com/NJS_HIN_EST_SC' }
+      ]
+    };
 
     const audio = document.getElementById('audio');
     const stationList = document.getElementById('stationList');
     const nowPlaying = document.getElementById('nowPlaying');
+    const sleepSelect = document.getElementById('sleepSelect');
+    const sleepCountdown = document.getElementById('sleepCountdown');
     let activeIndex = 0;
+    let allStations = [];
+    let sleepInterval = null;
+    let sleepTimeRemaining = 0;
 
     function updateClock() {
       const options = { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
@@ -91,7 +119,7 @@
     updateClock();
 
     function playStation(index) {
-      const station = stations[index];
+      const station = allStations[index];
       audio.src = station.url;
       nowPlaying.textContent = `Now Playing: ${station.name}`;
       document.querySelectorAll('.station-button').forEach((btn, i) => {
@@ -100,12 +128,44 @@
       activeIndex = index;
     }
 
-    stations.forEach((station, index) => {
-      const btn = document.createElement('button');
-      btn.className = 'station-button';
-      btn.innerHTML = `<img src="${station.logo}" alt="">${station.name}`;
-      btn.onclick = () => playStation(index);
-      stationList.appendChild(btn);
+    Object.entries(stationGroups).forEach(([group, stations]) => {
+      const groupLabel = document.createElement('div');
+      groupLabel.className = 'group-title';
+      groupLabel.textContent = group;
+      stationList.appendChild(groupLabel);
+      stations.forEach((station, index) => {
+        allStations.push(station);
+        const btn = document.createElement('button');
+        btn.className = 'station-button';
+        btn.textContent = station.name;
+        btn.onclick = () => playStation(allStations.indexOf(station));
+        stationList.appendChild(btn);
+      });
+    });
+
+    function updateSleepTimer() {
+      if (sleepTimeRemaining > 0) {
+        sleepTimeRemaining--;
+        const mins = Math.floor(sleepTimeRemaining / 60);
+        const secs = sleepTimeRemaining % 60;
+        sleepCountdown.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+      } else {
+        clearInterval(sleepInterval);
+        audio.pause();
+        sleepCountdown.textContent = '⏹ stopped';
+      }
+    }
+
+    sleepSelect.addEventListener('change', () => {
+      clearInterval(sleepInterval);
+      const mins = parseInt(sleepSelect.value);
+      if (mins > 0) {
+        sleepTimeRemaining = mins * 60;
+        sleepInterval = setInterval(updateSleepTimer, 1000);
+        updateSleepTimer();
+      } else {
+        sleepCountdown.textContent = '';
+      }
     });
 
     playStation(0);
