@@ -77,9 +77,9 @@
     <div class="sleep-control">
       ⏱ Sleep timer:
       <select id="sleepSelect">
-        <option value="0">Off</option>
+        <option value="0" selected>Off</option>
         <option value="30">30 min</option>
-        <option value="60" selected>60 min</option>
+        <option value="60">60 min</option>
         <option value="90">90 min</option>
       </select>
       <span id="sleepCountdown" style="margin-left: 10px;"></span>
@@ -97,6 +97,10 @@
       ],
       "INDIA": [
         { name: 'Radio Mirchi', url: 'https://19013.live.streamtheworld.com/NJS_HIN_EST_SC' }
+      ],
+      "CANADA": [
+        { name: 'Red FM Calgary', url: 'https://ice10.securenetsystems.net/CKYR?playSessionID=1BB250FA-9241-19AA-8E18F849198CC6F2' },
+        { name: 'Red FM Toronto', url: 'https://ice9.securenetsystems.net/CIRVFM?playSessionID=1BCA3281-9ABB-EF94-A9547BB5B472E6DF' }
       ]
     };
 
@@ -111,7 +115,17 @@
     let sleepTimeRemaining = 0;
 
     function updateClock() {
-      const options = { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+      const options = {
+        timeZone: 'Asia/Karachi',
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      };
       const time = new Intl.DateTimeFormat('en-GB', options).format(new Date());
       document.getElementById('clock').textContent = `Lahore Time: ${time}`;
     }
@@ -168,7 +182,11 @@
       }
     });
 
-    playStation(0);
+    const initialIndex = allStations.findIndex(s => s.name === 'Mera FM 107.4');
+    playStation(initialIndex >= 0 ? initialIndex : 0);
+    audio.autoplay = true;
+    audio.load();
+    audio.play().catch(e => console.log('Autoplay prevented:', e));
   </script>
 </body>
 </html>
